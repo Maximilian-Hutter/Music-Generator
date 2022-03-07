@@ -34,12 +34,11 @@ def Clustering(Genre, metadata): # metadata has 9 features (dimensions) Loudness
     
     data = MinMaxScaler().transform(metadata)
 
-    pca = PCA(3)
+    pca = PCA(3) # transform data into 3D for plotting delete for final non plotting Kmeans
     
     #Transform the data
     df = pca.fit_transform(data)
 
-    
     #Initialize the class object
     kmeans = KMeans(n_clusters= NUM_GENRES)
     
@@ -47,13 +46,10 @@ def Clustering(Genre, metadata): # metadata has 9 features (dimensions) Loudness
     label = kmeans.fit_predict(df)
     #Getting unique labels
     u_labels = np.unique(label)
-    
-    
+
+    # plot graph  
     Plot()
 
+    # return Indices of Samples of one cluster
     Indices = ClusterIndices(ClustNum, kmeans.labels_)  # Need to assign genres to Clust numbers, Clust Num = "Genre", create tabelle für ClustNum and Genre
     return Indices
-
-    
-
-
