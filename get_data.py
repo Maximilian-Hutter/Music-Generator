@@ -1,9 +1,8 @@
-from data_preparation import getWaveFilesPath
+from get_path_by_genre import getWaveFilesPath
 from genre_clustering import updateCluster
 import torchaudio
 from torch.utils.data import Dataset
 from genres import genrelist
-
 
 class AudioDataset(Dataset):
     def __init__(self, chosen_genre):   # generate AI weights for each genre
