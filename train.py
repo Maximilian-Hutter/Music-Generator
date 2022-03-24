@@ -1,24 +1,25 @@
 import numpy as np
 import torch
 import torch as nn
-from torch.nn.modules.loss import L1Loss
 import torch.optim as optim
 from torch.utils.data import DataLoader
 import torch.backends.cudnn as cudnn
 import socket
+from torch.optim import optimizer
 import argparse
 import time
 from torch.utils.tensorboard import SummaryWriter
 from prefetch_generator import BackgroundGenerator
 from genres import genrelist
 from get_data import AudioDataset
-
+from models import AudioGenerator
+from criterions import melody_comparison, audio_quality_check
 
 if __name__ == '__main__':
     # settings that can be changed with console command options
     parser = argparse.ArgumentParser(description='PyTorch ESRGANplus')
-    #parser.add_argument('--ray_tune', type=bool, default=False, help=("Use ray tune to tune parameters"))
-   
+    #parser.add_argument('--seed', type=int, default=0, help=("seed for random"))
+    
     opt = parser.parse_args()
     np.random.seed(opt.seed)    # set seed to default 123 or opt
     torch.manual_seed(opt.seed)
@@ -34,9 +35,15 @@ if __name__ == '__main__':
         print('==> Loading Datasets')
         dataloader = DataLoader(AudioDataset(genre))
 
-        pytorch_single_track_generator_params = sum(p.numel() for p in SingleTrackGenerator.parameters())
-        print("Number of Instrument Choose Params: {},Number of Track Merge Params: {}, Number of singler Gen Params:{}".format(pytorch_single_track_generator_params))
+        audio_generator = AudioGenerator()
+
+        # print full model parameter count
+        audio_generator_params = sum(p.numel() for p in audio_generator.parameters())
+        print("Number of Audio generator Parameters: {}".format(audio_generator_params))
+        
         # loss
+        melody_criterion = melody_comparison()
+        quality_criterion = audio_quality_check()
 
         # run on gpu
         cuda = opt.gpu_mode
@@ -48,12 +55,13 @@ if __name__ == '__main__':
             torch.cuda.manual_seed(opt.seed)
 
         if cuda:
-            SingleTrackGenerator = SingleTrackGenerator.cuda(gpus_list[0])
-            content_criterion = content_criterion.cuda(gpus_list[0])
+            audio_generator = audio_generator.cuda(gpus_list[0])
+            melody_criterion = melody_criterion.cuda(gpus_list[0])
 
         # optimizer
-        optimizerSingleTrack = optim.Adam(SingleTrackGenerator.parameters(), lr=opt.lr, betas=(opt.beta1, opt.beta2))  # ESRGANplus / generator optimizer
-    
+        optimizer_audio_generator = optim.Adam(audio_generator.parameters(), lr=opt.lr, betas=(opt.beta1, opt.beta2))
+        #optimizer_audio_generator = adafactor(audio_generator.parameters(), lr=opt.lr, betas=(opt.beta1, opt.beta2)) try this for experiments
+  
         # load checkpoint/load model
         star_n_iter = 0
         start_epoch = 0
@@ -66,12 +74,12 @@ if __name__ == '__main__':
 
         def checkpoint(epoch):
             model_out_path = opt.save_folder+opt.model_type+genre+".pth".format(epoch) # google multi model saving
-            torch.save(SingleTrackGenerator.state_dict(), model_out_path)
+            torch.save(audio_generator.state_dict(), model_out_path)
             print("Checkpoint saved to {}".format(model_out_path))
 
         # multiple gpu run
         if opt.multiGPU:
-            SingleTrackGenerator = torch.nn.DataParallel(SingleTrackGenerator, device_ids=gpus_list)
+            audio_generator = torch.nn.DataParallel(audio_generator, device_ids=gpus_list)
 
         # tensor board
         writer = SummaryWriter()
@@ -90,19 +98,25 @@ if __name__ == '__main__':
             for i, audio in enumerate(BackgroundGenerator(dataloader,1)):   #  for data in pbar # Count, item in enumerate
                 
                 # data preparation
-                #pbar(i, len(dataloader))
+
                 # prepare data
-                waveform = audio["waveform"]
-                sample_rate = audio["sample_rate"]
+                wave_x = audio["wave_x"]
+                sample_rate_x = audio["sample_rate_x"]
+                wave_y = audio["wave_y"]
+                sample_rate_y = audio["sample_rate_y"]
 
                 if cuda:    # put variables to gpu
-                    imgs_lr = imgs_lr.to(gpus_list[0])
-
+                    wave_x = wave_x.to(gpus_list[0])
+                    sample_rate_x = sample_rate_x.to(gpus_list[0])
+                    wave_y = wave_y.to(gpus_list[0])
+                    sample_rate_y = sample_rate_y.to(gpus_list[0])
+                    
                 # keep track of prepare time
                 prepare_time = time.time() - start_time
 
                 #train generator  
 
+                
                 # update tensorboard
 
 
@@ -126,7 +140,7 @@ if __name__ == '__main__':
 
         print('===> Building Model ', opt.model_type)
         if opt.model_type == 'ESRGANplus':
-            Net = SingleTrackGenerator
+            Net = audio_generator
 
         print('----------------Network architecture----------------')
         print_network(Net)

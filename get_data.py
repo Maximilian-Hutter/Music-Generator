@@ -2,7 +2,7 @@ from get_path_by_genre import getWaveFilesPath
 from genre_clustering import updateCluster
 import torchaudio
 from torch.utils.data import Dataset
-from genres import genrelist
+from transform_data import transform_to_label
 
 class AudioDataset(Dataset):
     def __init__(self, chosen_genre):   # generate AI weights for each genre
@@ -14,10 +14,15 @@ class AudioDataset(Dataset):
     
     def __getitem__(self, index):   # get audio to dataloader
         
-        waveform, sample_rate = torchaudio.load(self.files[index % len(self.files)])
+        wave_x, sample_rate_x = torchaudio.load(self.files[index % len(self.files)])
 
-        audio = {"waveform": waveform, "sample_rate": sample_rate}
-        return audio 
+        # transform the input values to the labels 
+        wave_y = transform_to_label(wave_x)   # if not possible use different dataset
+        sample_rate_y = sample_rate_x
+
+        audio = {"wave_x": wave_x, "sample_rate_x": sample_rate_x, "wave_y": wave_y, "sample_rate_y": sample_rate_y}
+
+        return audio
 
     def __len__(self):  # if error num_sampler should be positive -> because Dataset not yet Downloaded
         return len(self.files)
