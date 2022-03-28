@@ -3,8 +3,6 @@ import numpy as np
 import pickle
 import os
 
-WAV_DIRECTORY_PATH = "../../data/Music_data/WAV_files"  # path to wav audio files
-
 def  getIndices(chosen_genre): # get list indices from kmeans clusters
 
     def clusterIndices(clust_num, labels_array): # get index from all samples in one cluster
@@ -17,7 +15,7 @@ def  getIndices(chosen_genre): # get list indices from kmeans clusters
     
     return indices
 
-def getWaveFilesPath(chosen_genre):  # get wavfile paths using indices from clusters and os list directory
+def getWaveFilesPath(chosen_genre, WAV_DIRECTORY_PATH):  # get wavfile paths using indices from clusters and os list directory
 
     wave_file_paths = []
 

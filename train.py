@@ -18,7 +18,27 @@ from criterions import melody_comparison, audio_quality_check
 if __name__ == '__main__':
     # settings that can be changed with console command options
     parser = argparse.ArgumentParser(description='PyTorch ESRGANplus')
-    #parser.add_argument('--seed', type=int, default=0, help=("seed for random"))
+    parser.add_argument('--numDepthLayers', type=int, default=4, help=("number of Down/Upsampling layers (higher = better but computational less effiecient)"))
+    parser.add_argument('--attentionMechanism', type=bool, default=False, help=("set if an Attention mechanism should be used or not"))
+    parser.add_argument('--melodyCriterion', type=bool, default=True, help=("set if a Melody Criterion and Melody Extractor will be used"))
+    parser.add_argument('--qualityCriterion', type=bool, default=True, help=("set if a Quality Criterion and Quality Check will be used"))
+    parser.add_argument('--WithVoice', type=bool, default=False, help=("set if voiced music will be inputed or not (default = False)"))
+    parser.add_argument('--seed', type=int, default=123, help=("set seed"))
+    parser.add_argument('--gpu_mode', type=bool, default=False, help=("set cuda on/off"))
+    parser.add_argument('--genreSpecificSaves', type=bool, default=True, help=("set if every genre gets its own AI weight saves"))
+    parser.add_argument('--WAV_DIRECTORY_PATH', type=str, default="../../data/Music_data/train/", help=("set input file path"))
+    parser.add_argument('--LABEL_DIRECTORY_PATH', type=str, default="../../data/Music_data/valid/", help=("set label file path"))
+    parser.add_argument('--resume', type=bool, default=False, help=("resume training"))
+    parser.add_argument('--nEpochs', type=int, default=10, help=("number of epochs"))
+    parser.add_argument('--model_type', type=str, default="Music Gen", help=("Model Type"))
+    parser.add_argument('--snapshots', type=int, default=10, help=("which epochs to save (default 10)"))
+    parser.add_argument('--save_folder', type=str, default="../../results/Music_Generator", help=("model save folder"))
+    parser.add_argument('--nBatches', type=int, default=4, help=("num of batches"))
+    parser.add_argument('--lr', type=float, default=None, help=("learning rate"))
+    parser.add_argument('--beta1', type=float, default=None, help=("beta 1"))
+    parser.add_argument('--beta2', type=float, default=None, help=("beta 2"))
+    parser.add_argument('--gpus', type=int, default=1, help=("Number of gpus"))
+    parser.add_argument('--start_epoch', type=int, default=1, help='Starting epoch for continuing training')
     
     opt = parser.parse_args()
     np.random.seed(opt.seed)    # set seed to default 123 or opt
@@ -29,11 +49,15 @@ if __name__ == '__main__':
     cudnn.benchmark = True
     print(opt)  # print the chosen parameters
 
-    for genre in genrelist: # get one weight save for each genre
+    if opt.genreSpecificSaves:
+        genres = genrelist 
+    else:
+        genres = None   # if not using specific saves for each genre
         
+    for genre in genres:    # get one weight save for each genre
     # data loading
         print('==> Loading Datasets')
-        dataloader = DataLoader(AudioDataset(genre))
+        dataloader = DataLoader(AudioDataset(opt.WAV_DIRECTORY_PATH,opt.LABEL_DIRECTORY_PATH,genre))
 
         audio_generator = AudioGenerator()
 
@@ -78,8 +102,8 @@ if __name__ == '__main__':
             print("Checkpoint saved to {}".format(model_out_path))
 
         # multiple gpu run
-        if opt.multiGPU:
-            audio_generator = torch.nn.DataParallel(audio_generator, device_ids=gpus_list)
+        #if opt.multiGPU:
+        #    audio_generator = torch.nn.DataParallel(audio_generator, device_ids=gpus_list)
 
         # tensor board
         writer = SummaryWriter()
